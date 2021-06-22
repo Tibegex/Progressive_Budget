@@ -1,33 +1,37 @@
+const indexedDB =
+  window.indexedDB ||
+  window.mozIndexedDB ||
+  window.webkitIndexedDB ||
+  window.msIndexedDB ||
+  window.shimIndexedDB;
 let db;
-
-const request = window.indexedDB.open("Budget", 1);
-
+const request = indexedDB.open("progressive-budget", 1);
+// taking just the event (destructuring )
 request.onupgradeneeded = ({ target }) => {
+  let db = target.result;
+  db.createObjectStore("pending", { autoIncrement: true });
+};
+request.onsuccess = ({ target }) => {
   db = target.result;
-
-  if (db.objectStoreNames.length === 0) {
-    db.createObjectStore("budget", { autoIncrement: true });
-  }
-};
-request.onerror = function (e) {
-  console.log(`Woops! ${e.target.errorCode}`);
-};
-
-request.onsuccess = (event) => {
-  dp = request.result;
-
   if (navigator.onLine) {
     checkDatabase();
   }
 };
-
+request.onerror = function (event) {
+  console.log("Wrong! " + event.target.errorCode);
+};
+// creating a function for save record
+function saveRecord(record) {
+  const transaction = db.transaction(["<object store name here>"], "readwrite");
+  const store = transaction.objectStore("<object store name here>");
+  store.add(record);
+}
+// creating a function for checkDatabase and calling check database function
 function checkDatabase() {
-  let transaction = db.transaction(["budget"], "readwrite");
-
-  const store = transaction.objectStore("budget");
-
+  const transaction = db.transaction(["<object store name here>"], "readwrite");
+  const store = transaction.objectStore("<object store name here>");
   const getAll = store.getAll();
-
+  //get all on success
   getAll.onsuccess = function () {
     if (getAll.result.length > 0) {
       fetch("/api/transaction/bulk", {
@@ -38,26 +42,18 @@ function checkDatabase() {
           "Content-Type": "application/json",
         },
       })
-        .then((response) => response.json())
-        .then((res) => {
-          if (res.length !== 0) {
-            transaction = db.transaction(["budget"], "readwrite");
-
-            const currentStore = transaction.objectStore("budget");
-
-            currentStore.clear();
-          }
+        .then((response) => {
+          return response.json();
+        })
+        .then(() => {
+          const transaction = db.transaction(
+            ["<object store name here>"],
+            "readwrite"
+          );
+          const store = transaction.objectStore("<object store name here>");
+          store.clear();
         });
     }
   };
 }
-
-const saveRecord = (record) => {
-  const transaction = db.transaction(["budget"], "readwrite");
-
-  const store = transaction.objectStore("budget");
-
-  store.add(record);
-};
-
 window.addEventListener("online", checkDatabase);
